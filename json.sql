@@ -123,7 +123,7 @@ WITH CustAgg AS (
 )
 SELECT
     JSON_OBJECT(
-        'zip_code', ci.zip,
+        'zip_code', LPAD(ci.zip, 5, '0'),
         'city', ci.city,
         'state', ci.state,
         'customers',
