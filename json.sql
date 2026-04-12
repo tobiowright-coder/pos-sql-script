@@ -37,37 +37,6 @@ LEFT JOIN Buyers b ON b.product_id = p.id;
 -- CASE 2 — cust.json
 -- ============================================================
 
-WITH ItemAgg AS (
-    SELECT 
-        ol.order_id,
-        JSON_ARRAYAGG(
-            JSON_OBJECT(
-                'ProductID', p.id,
-                'ProductName', p.name,
-                'Quantity', ol.quantity
-            )
-        ) AS items_json,
-        SUM(ol.quantity * p.currentPrice) AS order_total
-    FROM Orderline ol
-    JOIN Product p ON p.id = ol.product_id
-    GROUP BY ol.order_id
-),
-OrderAgg AS (
-    SELECT
-        o.customer_id,
-        JSON_ARRAYAGG(
-            JSON_OBJECT(
-                'order_date', o.datePlaced,
-                'shipping_date', o.dateShipped,
-                'order_total', COALESCE(i.order_total, 0),
-                'items',
-                    JSON_EXTRACT(COALESCE(i.items_json, '[]'), '$')
-            )
-        ) AS orders_json
-    FROM `Order` o
-    LEFT JOIN ItemAgg i ON i.order_id = o.id
-    GROUP BY o.customer_id
-)
 SELECT
     JSON_OBJECT(
         'customer_name', CONCAT(c.firstName, ' ', c.lastName),
@@ -83,14 +52,44 @@ SELECT
             CONCAT(ci.city, ', ', ci.state, '   ', LPAD(ci.zip, 5, '0')),
 
         'orders',
-            JSON_EXTRACT(COALESCE(o.orders_json, '[]'), '$')
+            JSON_EXTRACT(COALESCE(oa.orders_json, '[]'), '$')
     )
 INTO OUTFILE '/var/lib/mysql-files/cust.json'
 FIELDS TERMINATED BY ''
 LINES TERMINATED BY '\n'
 FROM Customer c
 LEFT JOIN City ci ON ci.zip = c.zip
-LEFT JOIN OrderAgg o ON o.customer_id = c.id;
+LEFT JOIN (
+    SELECT
+        o.customer_id,
+        JSON_ARRAYAGG(
+            JSON_OBJECT(
+                'order_date', o.datePlaced,
+                'shipping_date', o.dateShipped,
+                'order_total', COALESCE(i.order_total, 0),
+                'items',
+                    JSON_EXTRACT(COALESCE(i.items_json, '[]'), '$')
+            )
+        ) AS orders_json
+    FROM `Order` o
+    LEFT JOIN (
+        SELECT 
+            ol.order_id,
+            JSON_ARRAYAGG(
+                JSON_OBJECT(
+                    'ProductID', p.id,
+                    'ProductName', p.name,
+                    'Quantity', ol.quantity
+                )
+            ) AS items_json,
+            SUM(ol.quantity * p.currentPrice) AS order_total
+        FROM Orderline ol
+        JOIN Product p ON p.id = ol.product_id
+        GROUP BY ol.order_id
+    ) AS i ON i.order_id = o.id
+    GROUP BY o.customer_id
+) AS oa ON oa.customer_id = c.id;
+
 
 
 
