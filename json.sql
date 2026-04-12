@@ -39,9 +39,12 @@ LEFT JOIN Buyers b ON b.product_id = p.id;
 -- CASE 2 — cust.json
 -- ============================================================
 
+-- CASE 2: Deep Customer Dashboard (cust.json)
+
 WITH Items AS (
     SELECT 
         ol.order_id,
+        SUM(ol.quantity * p.currentPrice) AS order_total,   -- ← add this
         JSON_ARRAYAGG(
             JSON_OBJECT(
                 'ProductID', p.id,
@@ -60,13 +63,7 @@ Orders AS (
             JSON_OBJECT(
                 'order_date', o.datePlaced,
                 'shipping_date', o.dateShipped,
-                'order_total',
-                    (
-                        SELECT SUM(ol.quantity * p.currentPrice)
-                        FROM Orderline ol
-                        JOIN Product p ON p.id = ol.product_id
-                        WHERE ol.order_id = o.id
-                    ),
+                'order_total', i.order_total,               -- ← reference it here
                 'items',
                     JSON_EXTRACT(COALESCE(i.items_json, '[]'), '$')
             )
@@ -78,17 +75,14 @@ Orders AS (
 SELECT
     JSON_OBJECT(
         'customer_name', CONCAT(c.firstName, ' ', c.lastName),
-
         'printed_address_1',
             IF(
                 c.address2 IS NULL OR c.address2 = '',
                 c.address1,
                 CONCAT(c.address1, ' #', c.address2)
             ),
-
         'printed_address_2',
             CONCAT(ci.city, ', ', ci.state, '   ', LPAD(ci.zip, 5, '0')),
-
         'orders',
             JSON_EXTRACT(COALESCE(o.orders_json, '[]'), '$')
     )
