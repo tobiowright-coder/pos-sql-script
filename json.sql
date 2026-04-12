@@ -1,3 +1,5 @@
+SET SESSION optimizer_switch='materialization=off';
+
 USE POS;
 
 -- ============================================================
