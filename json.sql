@@ -37,7 +37,7 @@ LEFT JOIN Buyers b ON b.product_id = p.id;
 -- CASE 2 — cust.json
 -- ============================================================
 
-WITH Items AS (
+WITH ItemAgg AS (
     SELECT 
         ol.order_id,
         JSON_ARRAYAGG(
@@ -51,7 +51,7 @@ WITH Items AS (
     JOIN Product p ON p.id = ol.product_id
     GROUP BY ol.order_id
 ),
-Orders AS (
+OrderAgg AS (
     SELECT
         o.customer_id,
         JSON_ARRAYAGG(
@@ -70,7 +70,7 @@ Orders AS (
             )
         ) AS orders_json
     FROM `Order` o
-    LEFT JOIN Items i ON i.order_id = o.id
+    LEFT JOIN ItemAgg i ON i.order_id = o.id
     GROUP BY o.customer_id
 )
 SELECT
@@ -95,7 +95,8 @@ FIELDS TERMINATED BY ''
 LINES TERMINATED BY '\n'
 FROM Customer c
 LEFT JOIN City ci ON ci.zip = c.zip
-LEFT JOIN Orders o ON o.customer_id = c.id;
+LEFT JOIN OrderAgg o ON o.customer_id = c.id;
+
 
 -- ============================================================
 -- CASE 3 — custom1.json
