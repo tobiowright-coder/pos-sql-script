@@ -46,7 +46,8 @@ WITH ItemAgg AS (
                 'ProductName', p.name,
                 'Quantity', ol.quantity
             )
-        ) AS items_json
+        ) AS items_json,
+        SUM(ol.quantity * p.currentPrice) AS order_total
     FROM Orderline ol
     JOIN Product p ON p.id = ol.product_id
     GROUP BY ol.order_id
@@ -58,13 +59,7 @@ OrderAgg AS (
             JSON_OBJECT(
                 'order_date', o.datePlaced,
                 'shipping_date', o.dateShipped,
-                'order_total',
-                    (
-                        SELECT SUM(ol.quantity * p.currentPrice)
-                        FROM Orderline ol
-                        JOIN Product p ON p.id = ol.product_id
-                        WHERE ol.order_id = o.id
-                    ),
+                'order_total', COALESCE(i.order_total, 0),
                 'items',
                     JSON_EXTRACT(COALESCE(i.items_json, '[]'), '$')
             )
@@ -96,6 +91,7 @@ LINES TERMINATED BY '\n'
 FROM Customer c
 LEFT JOIN City ci ON ci.zip = c.zip
 LEFT JOIN OrderAgg o ON o.customer_id = c.id;
+
 
 
 -- ============================================================
